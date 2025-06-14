@@ -1,13 +1,13 @@
 import streamlit as st
-from app import run_fee_app
+from feeapp import run_fee_app
 from attendanceapp import run_attendance_app
 
-st.set_page_config(page_title="🏫 School Management", layout="wide")
-st.sidebar.title("📂 Select Application")
+st.set_page_config(page_title="📚 School Management App", layout="centered")
 
-selected = st.sidebar.selectbox("📌 Choose App", ["📅 Attendance", "💰 Fee Manager"])
+st.sidebar.title("📂 Select App")
+app_option = st.sidebar.selectbox("Choose an app", ["Fee Management", "Attendance"])
 
-if selected == "📅 Attendance":
-    run_attendance_app()
-elif selected == "💰 Fee Manager":
+if app_option == "Fee Management":
     run_fee_app()
+elif app_option == "Attendance":
+    run_attendance_app()
