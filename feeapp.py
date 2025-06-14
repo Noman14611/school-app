@@ -4,7 +4,6 @@ import os, json
 from datetime import date
 
 def run_fee_app():
-    st.set_page_config(page_title="Fee Manager", layout="centered")
 
     DATA_FILE = "students_data.json"
     if os.path.exists(DATA_FILE):
