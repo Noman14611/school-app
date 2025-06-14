@@ -6,7 +6,6 @@ def run_fee_app():
     import json
     from datetime import date
 
-    st.set_page_config(page_title="🎓 Student Fee Manager", layout="centered")
     st.title("📚 Nizami I/H School")
 
     DATA_FILE = "students_data.json"
