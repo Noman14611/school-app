@@ -3,7 +3,7 @@ st.set_page_config(page_title="🏫 School Manager", layout="centered")
 
 from app import run_fee_app
 from attendanceapp import run_attendance_app
-from salaryapp import run_salary_app  # ✅ make sure this line is added
+from salaryapp import run_salary_app
 
 st.sidebar.title("📋 Select App")
 app_choice = st.sidebar.selectbox("Choose an app", ["🎓 Fee Manager", "📅 Attendance", "💰 Teacher Salary"])
