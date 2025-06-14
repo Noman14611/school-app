@@ -1,33 +1,30 @@
 import streamlit as st
+import pandas as pd
+import os, json
+from datetime import date
 
 def run_fee_app():
-    import pandas as pd
-    import os
-    import json
-    from datetime import date
-
-    st.title("📚 Nizami I/H School")
+    st.set_page_config(page_title="Fee Manager", layout="centered")
 
     DATA_FILE = "students_data.json"
-
-    def load_data():
-        if os.path.exists(DATA_FILE):
-            with open(DATA_FILE, "r") as f:
-                return json.load(f)
-        return []
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, "r") as f:
+            students = json.load(f)
+    else:
+        students = []
 
     def save_data(data):
         with open(DATA_FILE, "w") as f:
             json.dump(data, f, indent=4)
 
-    def export_to_excel(data):
+    def export_excel(data):
         df = pd.DataFrame(data)
         df.to_excel("students_record.xlsx", index=False)
         return "students_record.xlsx"
 
-    students = load_data()
+    st.title("📚 Nizami I/H School - Fee Manager")
 
-    tab1, tab2, tab3 = st.tabs(["➕ Add Student", "📋 View/Search/Filter", "📤 Export"])
+    tab1, tab2, tab3 = st.tabs(["➕ Add Student", "📋 View", "📤 Export"])
 
     with tab1:
         with st.form("add_form"):
@@ -36,7 +33,7 @@ def run_fee_app():
             student_class = st.selectbox("Class", ["Nursery", "KG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"])
             fee = st.number_input("Monthly Fee", value=0)
             paid = st.selectbox("Fee Paid?", ["Yes", "No"])
-            parent_contact = st.text_input("Parent Contact Number (e.g., 03xx-xxxxxxx)")
+            parent_contact = st.text_input("Parent Contact (03xx-xxxxxxx)")
             submitted = st.form_submit_button("Add Student")
 
             if submitted:
@@ -50,45 +47,26 @@ def run_fee_app():
                     "Date": str(date.today())
                 })
                 save_data(students)
-                st.success("✅ Student added successfully!")
+                st.success("✅ Student added!")
 
     with tab2:
-        st.subheader("🔍 Search & Filter Students")
         df = pd.DataFrame(students)
-
         if not df.empty:
             col1, col2 = st.columns(2)
             with col1:
                 search_name = st.text_input("Search by Name").lower()
             with col2:
-                search_roll = st.text_input("Search by Roll Number").lower()
-
+                search_roll = st.text_input("Search by Roll").lower()
             filtered_df = df[
-                df["Name"].str.lower().str.contains(search_name) &
-                df["Roll"].str.lower().str.contains(search_roll)
+                df["Name"].str.lower().str.contains(search_name) & df["Roll"].str.lower().str.contains(search_roll)
             ]
-
-            if st.checkbox("Show only unpaid students"):
+            if st.checkbox("Show only unpaid"):
                 filtered_df = filtered_df[filtered_df["Paid"] == "No"]
-
             st.dataframe(filtered_df, use_container_width=True)
-
-            del_roll = st.text_input("🎯 Enter Roll Number to Delete")
-            if st.button("🗑️ Delete Student"):
-                updated = [s for s in students if s["Roll"] != del_roll]
-                if len(updated) < len(students):
-                    save_data(updated)
-                    st.success("✅ Student deleted.")
-                    st.experimental_rerun()
-                else:
-                    st.warning("❌ Roll number not found.")
         else:
-            st.info("No records available.")
+            st.info("No student data found.")
 
     with tab3:
-        if students:
-            if st.button("📤 Export to Excel"):
-                path = export_to_excel(students)
-                st.success(f"✅ Exported to `{path}`")
-        else:
-            st.warning("No records to export.")
+        if students and st.button("📤 Export to Excel"):
+            path = export_excel(students)
+            st.success(f"✅ Exported to `{path}`")
