@@ -4,7 +4,6 @@ import os, json
 from datetime import date
 
 def run_salary_app():
-    st.set_page_config(page_title="👩‍🏫 Teacher Salary", layout="centered")
 
     DATA_FILE = "salary_data.json"
     if os.path.exists(DATA_FILE):
