@@ -1,81 +1,63 @@
 import streamlit as st
+import pandas as pd
+import os, json
+from datetime import date
 
 def run_attendance_app():
-    import pandas as pd
-    import json
-    import os
-    from datetime import date
-
-    st.title("🏫 School Attendance Tracker")
+    st.set_page_config(page_title="📅 Attendance App", layout="centered")
 
     DATA_FILE = "attendance_data.json"
-
-    def load_data():
-        if os.path.exists(DATA_FILE):
-            with open(DATA_FILE, "r") as f:
-                return json.load(f)
-        return []
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, "r") as f:
+            attendance = json.load(f)
+    else:
+        attendance = []
 
     def save_data(data):
         with open(DATA_FILE, "w") as f:
             json.dump(data, f, indent=4)
 
-    def export_to_excel(data):
+    def export_excel(data):
         df = pd.DataFrame(data)
         df.to_excel("attendance_record.xlsx", index=False)
         return "attendance_record.xlsx"
 
-    attendance = load_data()
+    st.title("🏫 Attendance Tracker")
 
-    tab1, tab2, tab3 = st.tabs(["📝 Mark Attendance", "📊 View/Search", "📤 Export"])
+    tab1, tab2, tab3 = st.tabs(["📝 Mark Attendance", "📊 View", "📤 Export"])
 
-    # 📝 Mark Attendance
     with tab1:
         with st.form("attendance_form"):
             name = st.text_input("Student Name")
             roll = st.text_input("Roll Number")
             student_class = st.selectbox("Class", ["Nursery", "KG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"])
-            status = st.radio("Attendance Status", ["Present", "Absent"])
+            status = st.radio("Status", ["Present", "Absent"])
             today = date.today().strftime("%Y-%m-%d")
-
             submit = st.form_submit_button("✔️ Mark Attendance")
-
             if submit:
                 attendance.append({
-                    "Name": name,
-                    "Roll": roll,
-                    "Class": student_class,
-                    "Status": status,
-                    "Date": today
+                    "Name": name, "Roll": roll, "Class": student_class,
+                    "Status": status, "Date": today
                 })
                 save_data(attendance)
                 st.success(f"✅ Attendance marked for {name} on {today}")
 
-    # 📊 View/Search Attendance
     with tab2:
-        st.subheader("🔍 Attendance Records")
         df = pd.DataFrame(attendance)
-
         if not df.empty:
             col1, col2 = st.columns(2)
             with col1:
                 search_name = st.text_input("Search by Name").lower()
             with col2:
-                search_roll = st.text_input("Search by Roll Number").lower()
-
+                search_roll = st.text_input("Search by Roll").lower()
             filtered_df = df[
-                df["Name"].str.lower().str.contains(search_name) &
-                df["Roll"].str.lower().str.contains(search_roll)
+                df["Name"].str.lower().str.contains(search_name) & df["Roll"].str.lower().str.contains(search_roll)
             ]
             st.dataframe(filtered_df, use_container_width=True)
         else:
             st.info("No attendance records yet.")
 
-    # 📤 Export Tab
     with tab3:
-        if attendance:
-            if st.button("📤 Export to Excel"):
-                path = export_to_excel(attendance)
-                st.success(f"✅ Exported to `{path}`")
-        else:
-            st.warning("No records to export.")
+        if attendance and st.button("📤 Export to Excel"):
+            path = export_excel(attendance)
+            st.success(f"✅ Exported to `{path}`")
