@@ -6,7 +6,6 @@ def run_attendance_app():
     import os
     from datetime import date
 
-    st.set_page_config(page_title="📅 Attendance App", layout="centered")
     st.title("🏫 School Attendance Tracker")
 
     DATA_FILE = "attendance_data.json"
