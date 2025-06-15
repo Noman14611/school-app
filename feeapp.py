@@ -82,7 +82,7 @@ def run_fee_app():
         if selected_class != "All":
             filtered_df = filtered_df[filtered_df["Class"] == selected_class]
 
-        if st.checkbox("Show Only Unpaid Students"):
+        if st.checkbox("Show Only Unpaid Students (Monthly)"):
             filtered_df = filtered_df[filtered_df["PaidMonths"].apply(lambda x: len(x) < 12)]
 
         st.dataframe(filtered_df, use_container_width=True)
@@ -91,4 +91,32 @@ def run_fee_app():
         student_names = [f"{s['Name']} - {s['Roll']}" for s in students]
         selected_student = st.selectbox("Select Student", student_names)
 
-        student = next(s for s in
+        # ✅ Fix applied here
+        student = next((s for s in students if f"{s['Name']} - {s['Roll']}" == selected_student), None)
+
+        fee_type = st.selectbox("Fee Type", ["Monthly", "Admission", "Exam", "Annual"])
+
+        if fee_type == "Monthly":
+            unpaid_months = [m for m in MONTHS if m not in student["PaidMonths"]]
+            month_to_pay = st.selectbox("Select Month to Mark as Paid", unpaid_months)
+        else:
+            month_to_pay = None
+
+        if st.button("Submit Fee"):
+            if fee_type == "Monthly":
+                if month_to_pay not in student["PaidMonths"]:
+                    student["PaidMonths"].append(month_to_pay)
+                    st.success(f"✅ Monthly Fee marked as Paid for {month_to_pay}")
+                else:
+                    st.info("Month already marked as paid.")
+            else:
+                st.success(f"✅ {fee_type} Fee received for {student['Name']}")
+
+            save_data(students)
+
+        # Show remaining unpaid months
+        unpaid = [m for m in MONTHS if m not in student["PaidMonths"]]
+        if unpaid:
+            st.info(f"📅 Unpaid Months: {', '.join(unpaid)}")
+        else:
+            st.success("✅ All months paid!")
