@@ -1,7 +1,6 @@
 import streamlit as st
 import json
 import os
-from datetime import date
 import pandas as pd
 
 DATA_FILE = "students_fee_data.json"
@@ -17,27 +16,26 @@ def save_data(data):
         json.dump(data, f, indent=4)
 
 def run_fee_app():
-    st.title("📚 Student Fee Management System")
+    st.title("📚 Student Fee Management")
 
     students = load_data()
 
-    tab1, tab2 = st.tabs(["➕ Add Student", "💰 Submit Fee / View Students"])
+    tab1, tab2 = st.tabs(["➕ Add Student", "💰 Submit/View Fee"])
 
     with tab1:
         with st.form("add_form"):
             name = st.text_input("Student Name")
             fname = st.text_input("Father Name")
-            family_id = st.text_input("Family ID (same for siblings)")
+            family_id = st.text_input("Family ID")
             roll = st.text_input("Roll Number")
-            student_class = st.selectbox("Class", [str(i) for i in range(1, 11)] + ["Nursery", "KG"])
+            student_class = st.selectbox("Class", ["Nursery", "KG"] + [str(i) for i in range(1, 11)])
             monthly_fee = st.number_input("Monthly Fee", min_value=0)
             admission_fee = st.number_input("Admission Fee", min_value=0)
             exam_fee = st.number_input("Exam Fee", min_value=0)
             annual_fee = st.number_input("Annual Fund", min_value=0)
-            months = {m: "Unpaid" for m in ["January", "February", "March", "April", "May", "June", "July",
-                                            "August", "September", "October", "November", "December"]}
+            months = {m: "Unpaid" for m in ["January", "February", "March", "April", "May", "June",
+                                            "July", "August", "September", "October", "November", "December"]}
             submitted = st.form_submit_button("Add Student")
-
             if submitted:
                 students.append({
                     "Name": name,
@@ -56,51 +54,48 @@ def run_fee_app():
 
     with tab2:
         if not students:
-            st.warning("No student records found.")
+            st.warning("No students found.")
             return
 
         df = pd.DataFrame(students)
         class_filter = st.selectbox("Filter by Class", ["All"] + sorted(df["Class"].unique().tolist()))
-        unpaid_filter = st.selectbox("Show Unpaid Month Students", ["All"] + list(df["Months"][0].keys()))
+        month_filter = st.selectbox("Unpaid Month Filter", ["All"] + list(students[0]["Months"].keys()))
 
-        filtered_students = students
+        filtered = students
         if class_filter != "All":
-            filtered_students = [s for s in students if s["Class"] == class_filter]
+            filtered = [s for s in filtered if s["Class"] == class_filter]
+        if month_filter != "All":
+            filtered = [s for s in filtered if s["Months"][month_filter] == "Unpaid"]
 
-        if unpaid_filter != "All":
-            filtered_students = [s for s in filtered_students if s["Months"][unpaid_filter] == "Unpaid"]
-
-        st.subheader("📋 Student List")
-        for student in filtered_students:
-            with st.expander(f"{student['Name']} ({student['Roll']}) - Class {student['Class']}"):
-                st.markdown(f"👨 Father: {student['FatherName']}")
-                st.markdown(f"🏠 Family ID: {student['FamilyID']}")
-                st.markdown(f"💵 Monthly Fee: {student['MonthlyFee']}")
-                st.markdown(f"📚 Admission: {student['AdmissionFee']}, Exam: {student['ExamFee']}, Annual: {student['AnnualFee']}")
+        for student in filtered:
+            with st.expander(f"{student['Name']} ({student['Class']})"):
+                st.write("👨 Father Name:", student["FatherName"])
+                st.write("🏠 Family ID:", student["FamilyID"])
+                st.write("📌 Roll Number:", student["Roll"])
+                st.write("💰 Monthly Fee:", student["MonthlyFee"])
+                st.write("📚 Admission:", student["AdmissionFee"], " | Exam:", student["ExamFee"], " | Annual:", student["AnnualFee"])
 
                 unpaid_months = [m for m, v in student["Months"].items() if v == "Unpaid"]
                 paid_months = [m for m, v in student["Months"].items() if v == "Paid"]
+                st.write("✅ Paid Months:", ', '.join(paid_months) if paid_months else "None")
+                st.write("❌ Unpaid Months:", ', '.join(unpaid_months) if unpaid_months else "None")
 
-                st.markdown(f"📅 Paid Months: {', '.join(paid_months) if paid_months else 'None'}")
-                st.markdown(f"📅 Unpaid Months: {', '.join(unpaid_months) if unpaid_months else 'None'}")
-
-                fee_type = st.selectbox(f"Select Fee Type for {student['Name']}", ["Monthly", "Admission", "Exam", "Annual"], key=student['Roll'])
-                if fee_type == "Monthly":
+                fee_type = st.selectbox("Select Fee Type", ["Monthly", "Admission", "Exam", "Annual"], key=student["Roll"])
+                selected_month = None
+                if fee_type == "Monthly" and unpaid_months:
                     selected_month = st.selectbox("Select Month", unpaid_months, key="month_" + student["Roll"])
-                else:
-                    selected_month = None
 
-                if st.button("💰 Submit Fee", key="btn_" + student["Roll"] + fee_type):
+                if st.button("💰 Submit Fee", key="submit_" + student["Roll"] + fee_type):
                     if fee_type == "Monthly" and selected_month:
                         student["Months"][selected_month] = "Paid"
-                        st.success(f"{fee_type} Fee submitted for {selected_month}")
+                        st.success(f"Monthly Fee for {selected_month} marked as Paid.")
                     elif fee_type == "Admission":
                         student["AdmissionFee"] = 0
-                        st.success("Admission Fee submitted!")
+                        st.success("Admission Fee marked as Paid.")
                     elif fee_type == "Exam":
                         student["ExamFee"] = 0
-                        st.success("Exam Fee submitted!")
+                        st.success("Exam Fee marked as Paid.")
                     elif fee_type == "Annual":
                         student["AnnualFee"] = 0
-                        st.success("Annual Fund submitted!")
+                        st.success("Annual Fee marked as Paid.")
                     save_data(students)
