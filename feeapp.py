@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
-import json
 import os
+import json
 from datetime import date
 
 DATA_FILE = "students_data.json"
@@ -18,7 +18,7 @@ def save_data(data):
     with open(DATA_FILE, "w") as f:
         json.dump(data, f, indent=4)
 
-# Export to Excel
+# Export Excel
 def export_to_excel(data):
     df = pd.DataFrame(data)
     df.to_excel("students_record.xlsx", index=False)
@@ -29,43 +29,46 @@ st.title("📚 Nizami I/H School")
 
 students = load_data()
 
-months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+# Helper: Calculate Remaining Fee
+def calculate_remaining_fee(student):
+    total_fee = student.get("MonthlyFee", 0) + student.get("AnnualFund", 0) + student.get("ExamFee", 0) + student.get("AdmissionFee", 0)
+    paid_months = student.get("PaidMonths", [])
+    remaining_months = 12 - len(paid_months)
+    return (remaining_months * student.get("MonthlyFee", 0)) + student.get("AnnualFund", 0) + student.get("ExamFee", 0) + student.get("AdmissionFee", 0)
 
-# Tabs setup
-tab1, tab2, tab3 = st.tabs(["➕ Add Student", "📋 View/Search/Filter", "📤 Export"])
+# Tabs
+tab1, tab2, tab3, tab4 = st.tabs(["➕ Add Student", "📋 View/Search/Filter", "✅ Mark Fee Paid", "📤 Export"])
 
 # ➕ Add Student Tab
 with tab1:
     with st.form("add_form"):
         name = st.text_input("Student Name")
         fname = st.text_input("Father's Name")
-        family_id = st.text_input("Family Group ID (same for siblings)")
         roll = st.text_input("Roll Number")
+        family_id = st.text_input("Family Group ID (for siblings)")
         student_class = st.selectbox("Class", ["Nursery", "KG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"])
         monthly_fee = st.number_input("Monthly Fee", value=0)
-        annual_fee = st.number_input("Annual Fund", value=0)
+        annual_fund = st.number_input("Annual Fund", value=0)
         exam_fee = st.number_input("Exam Fee", value=0)
         admission_fee = st.number_input("Admission Fee", value=0)
-        paid_months = st.multiselect("Select Paid Months", months)
         parent_contact = st.text_input("Parent Contact Number (e.g., 03xx-xxxxxxx)")
-        submit = st.form_submit_button("Add Student")
+        submitted = st.form_submit_button("Add Student")
 
-        if submit:
-            student_data = {
+        if submitted:
+            students.append({
                 "Name": name,
                 "Father": fname,
-                "FamilyID": family_id,
                 "Roll": roll,
+                "FamilyID": family_id,
                 "Class": student_class,
                 "MonthlyFee": monthly_fee,
-                "AnnualFee": annual_fee,
+                "AnnualFund": annual_fund,
                 "ExamFee": exam_fee,
                 "AdmissionFee": admission_fee,
-                "PaidMonths": paid_months,
                 "ParentContact": parent_contact,
-                "DateAdded": str(date.today())
-            }
-            students.append(student_data)
+                "PaidMonths": [],
+                "Date": str(date.today())
+            })
             save_data(students)
             st.success("✅ Student added successfully!")
 
@@ -83,46 +86,27 @@ with tab2:
         with col3:
             selected_class = st.selectbox("Filter by Class", ["All"] + sorted(df["Class"].unique().tolist()))
 
-        filtered_df = df[
-            df["Name"].str.lower().str.contains(search_name) &
-            df["Roll"].str.lower().str.contains(search_roll)
-        ]
+        filtered_df = df[df["Name"].str.lower().str.contains(search_name) &
+                         df["Roll"].str.lower().str.contains(search_roll)]
 
         if selected_class != "All":
             filtered_df = filtered_df[filtered_df["Class"] == selected_class]
 
-        st.write("### Filtered Students")
-        st.dataframe(filtered_df, use_container_width=True)
+        if st.checkbox("Show only unpaid students"):
+            filtered_df = filtered_df[filtered_df["PaidMonths"].apply(lambda x: len(x) < 12)]
 
-        if st.checkbox("Show only unpaid students for a month"):
-            selected_month = st.selectbox("Select Month to Check Unpaid", months)
-            unpaid_df = df[~df["PaidMonths"].apply(lambda x: selected_month in x)]
-            if selected_class != "All":
-                unpaid_df = unpaid_df[unpaid_df["Class"] == selected_class]
-            st.write(f"### Unpaid Students for {selected_month}")
-            st.dataframe(unpaid_df, use_container_width=True)
-
-        st.write("### Fee Breakdown and Remaining Amount")
-        df["Remaining"] = df.apply(lambda row: row["MonthlyFee"] * (12 - len(row["PaidMonths"])) + row["AnnualFee"] + row["ExamFee"] + row["AdmissionFee"], axis=1)
-        st.dataframe(df[["Name", "Roll", "Class", "MonthlyFee", "AnnualFee", "ExamFee", "AdmissionFee", "PaidMonths", "Remaining"]], use_container_width=True)
-
-        del_roll = st.text_input("🎯 Enter Roll Number to Delete")
-        if st.button("🗑️ Delete Student"):
-            updated = [s for s in students if s["Roll"] != del_roll]
-            if len(updated) < len(students):
-                save_data(updated)
-                st.success("✅ Student deleted.")
-                st.experimental_rerun()
-            else:
-                st.warning("❌ Roll number not found.")
+        if not filtered_df.empty:
+            for i, row in filtered_df.iterrows():
+                remaining = calculate_remaining_fee(row)
+                st.write(f"**{row['Name']} ({row['Roll']})** | Class: {row['Class']} | Remaining Fee: Rs. {remaining}")
+                st.write(f"Paid Months: {', '.join(row['PaidMonths']) if row['PaidMonths'] else 'None'}")
+        else:
+            st.info("No matching students found.")
     else:
         st.info("No records available.")
 
-# 📤 Export Tab
+# ✅ Mark Fee Paid Tab
 with tab3:
+    st.subheader("✅ Mark Student Fee as Paid")
     if students:
-        if st.button("📤 Export to Excel"):
-            path = export_to_excel(students)
-            st.success(f"✅ Exported to `{path}`")
-    else:
-        st.warning("No records to export.")
+        student_roll = st.selectbox("Select Roll Number", [s["Roll"] for s in students])
