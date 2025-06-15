@@ -3,13 +3,11 @@ from feeapp import run_fee_app
 from attendanceapp import run_attendance_app
 from salaryapp import run_salary_app
 
-st.set_page_config(page_title="🏫 School Management System", layout="centered")
+st.set_page_config(page_title="🏫 School Management App", layout="centered")
 
-st.title("📚 School Management Dashboard")
+app = st.sidebar.selectbox("Select App", ["📚 Fee Submission", "📅 Attendance", "👩‍🏫 Teacher Salary"])
 
-app = st.selectbox("Select an App", ["📘 Fee Submission", "📅 Attendance", "👩‍🏫 Teacher Salary"])
-
-if app == "📘 Fee Submission":
+if app == "📚 Fee Submission":
     run_fee_app()
 elif app == "📅 Attendance":
     run_attendance_app()
