@@ -1,112 +1,122 @@
 import streamlit as st
 import pandas as pd
-import os
 import json
+import os
 from datetime import date
 
-DATA_FILE = "students_data.json"
+DATA_FILE = "students_fee_data.json"
 
-# Load data
+# Load student data
 def load_data():
     if os.path.exists(DATA_FILE):
         with open(DATA_FILE, "r") as f:
             return json.load(f)
     return []
 
-# Save data
+# Save student data
 def save_data(data):
     with open(DATA_FILE, "w") as f:
         json.dump(data, f, indent=4)
 
-# Export Excel
-def export_to_excel(data):
-    df = pd.DataFrame(data)
-    df.to_excel("students_record.xlsx", index=False)
-    return "students_record.xlsx"
-
-st.set_page_config(page_title="🎓 Student Fee Manager", layout="centered")
-st.title("📚 Nizami I/H School")
+# App layout
+st.set_page_config(page_title="📚 Fee Manager", layout="centered")
+st.title("🏫 Nizami I/H School - Fee Manager")
 
 students = load_data()
 
-# Helper: Calculate Remaining Fee
-def calculate_remaining_fee(student):
-    total_fee = student.get("MonthlyFee", 0) + student.get("AnnualFund", 0) + student.get("ExamFee", 0) + student.get("AdmissionFee", 0)
-    paid_months = student.get("PaidMonths", [])
-    remaining_months = 12 - len(paid_months)
-    return (remaining_months * student.get("MonthlyFee", 0)) + student.get("AnnualFund", 0) + student.get("ExamFee", 0) + student.get("AdmissionFee", 0)
+tabs = st.tabs(["➕ Add Student", "💸 Submit Fee", "📋 View/Filter", "📤 Export"])
 
-# Tabs
-tab1, tab2, tab3, tab4 = st.tabs(["➕ Add Student", "📋 View/Search/Filter", "✅ Mark Fee Paid", "📤 Export"])
-
-# ➕ Add Student Tab
-with tab1:
-    with st.form("add_form"):
+# ➕ Add Student
+with tabs[0]:
+    with st.form("add_student"):
         name = st.text_input("Student Name")
         fname = st.text_input("Father's Name")
+        family_id = st.text_input("Family Group ID (same for siblings)")
         roll = st.text_input("Roll Number")
-        family_id = st.text_input("Family Group ID (for siblings)")
-        student_class = st.selectbox("Class", ["Nursery", "KG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"])
-        monthly_fee = st.number_input("Monthly Fee", value=0)
-        annual_fund = st.number_input("Annual Fund", value=0)
-        exam_fee = st.number_input("Exam Fee", value=0)
-        admission_fee = st.number_input("Admission Fee", value=0)
-        parent_contact = st.text_input("Parent Contact Number (e.g., 03xx-xxxxxxx)")
+        student_class = st.selectbox("Class", ["Nursery", "KG"] + [str(i) for i in range(1, 11)])
+        monthly_fee = st.number_input("Monthly Fee", min_value=0)
+        admission_fee = st.number_input("Admission Fee", min_value=0)
+        exam_fee = st.number_input("Exam Fee", min_value=0)
+        annual_fund = st.number_input("Annual Fund", min_value=0)
+        contact = st.text_input("Parent Contact Number")
         submitted = st.form_submit_button("Add Student")
 
         if submitted:
             students.append({
                 "Name": name,
                 "Father": fname,
-                "Roll": roll,
                 "FamilyID": family_id,
+                "Roll": roll,
                 "Class": student_class,
                 "MonthlyFee": monthly_fee,
-                "AnnualFund": annual_fund,
-                "ExamFee": exam_fee,
                 "AdmissionFee": admission_fee,
-                "ParentContact": parent_contact,
-                "PaidMonths": [],
-                "Date": str(date.today())
+                "ExamFee": exam_fee,
+                "AnnualFund": annual_fund,
+                "Contact": contact,
+                "Payments": {}  # Structure: {"2025-06": ["Monthly", "Admission"]}
             })
             save_data(students)
-            st.success("✅ Student added successfully!")
+            st.success("✅ Student added!")
 
-# 📋 View/Search/Filter Tab
-with tab2:
-    st.subheader("🔍 Search & Filter Students")
+# 💸 Submit Fee
+with tabs[1]:
+    st.subheader("💰 Submit Fee")
+    if students:
+        selected_student = st.selectbox("Select Student", [f"{s['Name']} ({s['Roll']})" for s in students])
+        fee_type = st.selectbox("Fee Type", ["Monthly", "Admission", "Exam", "Annual"])
+        today = date.today()
+        current_month = today.strftime("%Y-%m")
+
+        if st.button("Submit Fee"):
+            for s in students:
+                label = f"{s['Name']} ({s['Roll']})"
+                if label == selected_student:
+                    if current_month not in s["Payments"]:
+                        s["Payments"][current_month] = []
+                    if fee_type not in s["Payments"][current_month]:
+                        s["Payments"][current_month].append(fee_type)
+                        save_data(students)
+                        st.success(f"✅ {fee_type} Fee marked as paid for {s['Name']} ({current_month})")
+                    else:
+                        st.warning("⚠️ This fee type already marked as paid.")
+    else:
+        st.warning("❌ No students found.")
+
+# 📋 View/Filter
+with tabs[2]:
+    st.subheader("📋 Student Fee Status")
     df = pd.DataFrame(students)
 
     if not df.empty:
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            search_name = st.text_input("Search by Name").lower()
-        with col2:
-            search_roll = st.text_input("Search by Roll Number").lower()
-        with col3:
-            selected_class = st.selectbox("Filter by Class", ["All"] + sorted(df["Class"].unique().tolist()))
+        col1, col2 = st.columns(2)
+        class_filter = col1.selectbox("Filter by Class", ["All"] + sorted(df["Class"].unique()))
+        unpaid_type = col2.selectbox("Filter Unpaid Type", ["None", "Monthly", "Admission", "Exam", "Annual"])
 
-        filtered_df = df[df["Name"].str.lower().str.contains(search_name) &
-                         df["Roll"].str.lower().str.contains(search_roll)]
+        result = []
+        current_month = date.today().strftime("%Y-%m")
 
-        if selected_class != "All":
-            filtered_df = filtered_df[filtered_df["Class"] == selected_class]
+        for s in students:
+            is_unpaid = unpaid_type != "None" and (
+                current_month not in s["Payments"] or unpaid_type not in s["Payments"][current_month]
+            )
+            if (class_filter == "All" or s["Class"] == class_filter) and (
+                unpaid_type == "None" or is_unpaid
+            ):
+                result.append({
+                    "Name": s["Name"],
+                    "Father": s["Father"],
+                    "Roll": s["Roll"],
+                    "Class": s["Class"],
+                    "Unpaid Fee": unpaid_type if is_unpaid else "-"
+                })
 
-        if st.checkbox("Show only unpaid students"):
-            filtered_df = filtered_df[filtered_df["PaidMonths"].apply(lambda x: len(x) < 12)]
-
-        if not filtered_df.empty:
-            for i, row in filtered_df.iterrows():
-                remaining = calculate_remaining_fee(row)
-                st.write(f"**{row['Name']} ({row['Roll']})** | Class: {row['Class']} | Remaining Fee: Rs. {remaining}")
-                st.write(f"Paid Months: {', '.join(row['PaidMonths']) if row['PaidMonths'] else 'None'}")
-        else:
-            st.info("No matching students found.")
+        st.dataframe(pd.DataFrame(result), use_container_width=True)
     else:
-        st.info("No records available.")
+        st.info("No students to show.")
 
-# ✅ Mark Fee Paid Tab
-with tab3:
-    st.subheader("✅ Mark Student Fee as Paid")
-    if students:
-        student_roll = st.selectbox("Select Roll Number", [s["Roll"] for s in students])
+# 📤 Export
+with tabs[3]:
+    if st.button("📥 Export to Excel"):
+        df_export = pd.DataFrame(students)
+        df_export.to_excel("full_fee_records.xlsx", index=False)
+        st.success("✅ Data exported to full_fee_records.xlsx")
