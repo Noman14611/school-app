@@ -1,15 +1,8 @@
 import streamlit as st
 from feeapp import run_fee_app
-from attendanceapp import run_attendance_app
-from salaryapp import run_salary_app
 
-st.set_page_config(page_title="School App", layout="centered")
+# You can add more apps later like attendance or salary
+app = st.sidebar.selectbox("Select App", ["Fee Submission"])
 
-app = st.selectbox("Choose App", ["Fee", "Attendance", "Salary"])
-
-if app == "Fee":
+if app == "Fee Submission":
     run_fee_app()
-elif app == "Attendance":
-    run_attendance_app()
-elif app == "Salary":
-    run_salary_app()
